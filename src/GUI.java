@@ -23,6 +23,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.security.acl.LastOwnerException;
 import java.security.cert.Certificate;
 import java.text.DecimalFormat;
 import java.util.Queue;
@@ -197,7 +198,8 @@ class WebDownload implements Runnable {
 		FileOutputStream fout = null;
 		URL url = new URL(fileUrl);
 		HttpURLConnection httpCon;
-		String fileName = url.getFile();
+		String endPath = url.getFile();
+		String fileName = endPath.substring(endPath.lastIndexOf('/') + 1, endPath.length());
 		try {
 			in = new BufferedInputStream(url.openStream());
 			fout = new FileOutputStream(filePath + fileName);
