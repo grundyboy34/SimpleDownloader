@@ -44,6 +44,10 @@ import javax.swing.event.CaretEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 
+/*
+ *@Author grundyboy34
+ *@Version 0.3
+ */
 public class GUI extends JFrame {
 
 	private JPanel contentPane;
@@ -55,7 +59,9 @@ public class GUI extends JFrame {
 	JProgressBar progressBar = new JProgressBar();
 	final GUI thisGUI = this;
 	ErrorCheck errorChecker;
-	
+	boolean isDownloading = false;
+	WebDownload currentDownload;
+
 	String currentPath;
 
 	/**
@@ -75,8 +81,8 @@ public class GUI extends JFrame {
 
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
-					GUI frame = new GUI();
-					frame.setVisible(true);				
+				GUI frame = new GUI();
+				frame.setVisible(true);
 			}
 		});
 	}
@@ -85,7 +91,7 @@ public class GUI extends JFrame {
 	 * Create the frame.
 	 */
 	public GUI() {
-		
+
 		try {
 			currentPath = new java.io.File(".").getCanonicalPath();
 		} catch (IOException e) {
@@ -160,7 +166,13 @@ public class GUI extends JFrame {
 
 		downloadButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				final WebDownload dl = new WebDownload(thisGUI);
+				if (isDownloading) {
+					currentDownload.abort();
+				} else {
+					currentDownload = new WebDownload(thisGUI);
+				}
+				isDownloading = !isDownloading;
+				toggleDownloadButtonText();
 			}
 		});
 
@@ -169,7 +181,15 @@ public class GUI extends JFrame {
 	public void setEnabledForAll(boolean status) {
 		textField.setEnabled(status);
 		textField_1.setEnabled(status);
-		downloadButton.setEnabled(status);
+	}
+
+	public void toggleDownloadButtonText() {
+		if (isDownloading) {
+			downloadButton.setText("Abort");
+
+		} else {
+			downloadButton.setText("Download");
+		}
 	}
 
 }
@@ -186,6 +206,10 @@ class WebDownload implements Runnable {
 		t.start();
 	}
 
+	public void abort() {
+		t.interrupt();
+	}
+
 	void download() throws MalformedURLException, IOException {
 
 		String fileUrl = gui.textField.getText();
@@ -193,13 +217,14 @@ class WebDownload implements Runnable {
 		if (filePath.charAt(filePath.length() - 1) != '/') {
 			filePath += '/';
 		}
-		
+
 		BufferedInputStream in = null;
 		FileOutputStream fout = null;
 		URL url = new URL(fileUrl);
 		HttpURLConnection httpCon;
 		String endPath = url.getFile();
-		String fileName = endPath.substring(endPath.lastIndexOf('/') + 1, endPath.length());
+		String fileName = endPath.substring(endPath.lastIndexOf('/') + 1,
+				endPath.length());
 		try {
 			in = new BufferedInputStream(url.openStream());
 			fout = new FileOutputStream(filePath + fileName);
@@ -211,14 +236,15 @@ class WebDownload implements Runnable {
 			long start = System.nanoTime();
 			long totalRead = 0;
 			final double NANOS_PER_SECOND = 1000000000.0;
-			//final double BYTES_PER_MIB = 1024 * 1024;
+			// final double BYTES_PER_MIB = 1024 * 1024;
 			final double BYTES_PER_KILOBYTE = 1024;
 			double speed;
 			DecimalFormat formatter = new DecimalFormat("#.##");
 			gui.progressBar.setMaximum(fileSize < 0 ? 1 : (int) fileSize);
 			gui.progressBar.setValue(0);
 			gui.setEnabledForAll(false);
-			while ((count = in.read(data, 0, bufferSize)) != -1) {
+			while (!t.isInterrupted()
+					&& (count = in.read(data, 0, bufferSize)) != -1) {
 				totalRead += count;
 				speed = NANOS_PER_SECOND / BYTES_PER_KILOBYTE * totalRead
 						/ (System.nanoTime() - start + 1);
@@ -236,7 +262,11 @@ class WebDownload implements Runnable {
 				fout.close();
 			}
 
-			gui.statusLabel.setText("Download Complete!");
+			if (t.isInterrupted()) {
+				gui.statusLabel.setText("Download Aborted!");
+			} else {
+				gui.statusLabel.setText("Download Complete!");
+			}
 			gui.setEnabledForAll(true);
 		}
 	}
@@ -260,6 +290,12 @@ class ErrorCheck implements Runnable {
 	GUI gui;
 	String urlPath;
 	String fileDir;
+	final Error INVALID_DIRECTORY = new Error("Not a valid directory!",
+			Color.RED, 8);
+	final Error MALFORMED_URL = new Error(
+			"Not a valid URL - be sure to include http://", Color.RED, 9);
+	final Error INVALID_URL = new Error("Couldn't establish a connection!",
+			Color.RED, 10);
 
 	public ErrorCheck(final GUI gui) {
 		this.gui = gui;
@@ -280,16 +316,13 @@ class ErrorCheck implements Runnable {
 	public void checkForErrors() {
 		File path = new File(fileDir);
 		URL url = null;
-		Error INVALID_DIRECTORY = new Error("Not a valid directory!", Color.RED, 8);		
-		Error MALFORMED_URL = new Error("Not a valid URL - be sure to include http://",	Color.RED, 9);
-		Error INVALID_URL = new Error("Couldn't establish a connection!" , Color.RED, 10);
-		
+
 		try {
-			url = new URL(urlPath);			
+			url = new URL(urlPath);
 			if (!url.getHost().equals(null) && !url.getHost().equals("")) {
 				url.openStream();
-				gui.errorLabel.removeError(MALFORMED_URL);
 				gui.errorLabel.removeError(INVALID_URL);
+				gui.errorLabel.removeError(MALFORMED_URL);
 				gui.textField.setBackground(Color.WHITE);
 			} else {
 				gui.errorLabel.addError(INVALID_URL);
@@ -301,7 +334,7 @@ class ErrorCheck implements Runnable {
 			gui.textField.setBackground(Color.RED);
 		} catch (IOException e) {
 			gui.errorLabel.addError(INVALID_URL);
-			gui.textField.setBackground(Color.RED);	
+			gui.textField.setBackground(Color.RED);
 		}
 
 		if (!path.exists()) {

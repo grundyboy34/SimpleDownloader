@@ -7,6 +7,10 @@ import javax.swing.JLabel;
 import javax.swing.JTextField;
 
 
+/*
+ * @Author grundyboy34
+ */
+
 public class ErrorLabel extends JLabel {
 	
 	private Error currentError = null;
@@ -57,6 +61,7 @@ public class ErrorLabel extends JLabel {
 			this.setText(currentError.getErrorText());
 		} else {
 			this.setText("");
+		
 		}
 	}
 	
