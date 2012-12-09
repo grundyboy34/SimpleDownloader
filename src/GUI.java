@@ -224,6 +224,8 @@ class WebDownload implements Runnable {
 		String endPath = url.getFile();
 		String fileName = endPath.substring(endPath.lastIndexOf('/') + 1,
 				endPath.length());
+		System.out.println(endPath);
+		System.out.println(fileName);
 		try {
 			in = new BufferedInputStream(url.openStream());
 			fout = new FileOutputStream(filePath + fileName);
