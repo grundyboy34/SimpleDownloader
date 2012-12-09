@@ -25,7 +25,10 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.security.acl.LastOwnerException;
 import java.security.cert.Certificate;
+import java.text.DateFormat;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -224,8 +227,13 @@ class WebDownload implements Runnable {
 		String endPath = url.getFile();
 		String fileName = endPath.substring(endPath.lastIndexOf('/') + 1,
 				endPath.length());
-		System.out.println(endPath);
-		System.out.println(fileName);
+		if (fileName.equals(null) || fileName.equals("")) {
+			System.out.println("Filename unkown");
+			DateFormat dateFormat = new SimpleDateFormat("(MM-dd-yyyy_HH.mm)");
+			Date date = new Date();
+			System.out.println(dateFormat.format(date));
+			fileName =  dateFormat.format(date) + " @ " + url.getHost() + ".FILE";
+		}
 		try {
 			in = new BufferedInputStream(url.openStream());
 			fout = new FileOutputStream(filePath + fileName);
