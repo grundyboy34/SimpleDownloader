@@ -48,13 +48,14 @@ public class GUI extends JFrame {
 	private JPanel contentPane;
 	JTextField textField;
 	JTextField textField_1;
-	JTextField textField_2;
 	final JLabel statusLabel = new JLabel("Idle");
 	final ErrorLabel errorLabel = new ErrorLabel("");
 	final JButton downloadButton = new JButton("Download!");
 	JProgressBar progressBar = new JProgressBar();
 	final GUI thisGUI = this;
 	ErrorCheck errorChecker;
+	
+	String currentPath;
 
 	/**
 	 * Launch the application.
@@ -73,14 +74,8 @@ public class GUI extends JFrame {
 
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
-				String current = "C:/";
-				try {
-					current = new java.io.File(".").getCanonicalPath();
-					GUI frame = new GUI(current);
-					frame.setVisible(true);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+					GUI frame = new GUI();
+					frame.setVisible(true);				
 			}
 		});
 	}
@@ -88,12 +83,19 @@ public class GUI extends JFrame {
 	/**
 	 * Create the frame.
 	 */
-	public GUI(final String currentPath) {
+	public GUI() {
+		
+		try {
+			currentPath = new java.io.File(".").getCanonicalPath();
+		} catch (IOException e) {
+			e.printStackTrace();
+			currentPath = "C:";
+		}
 
 		// gui init
 		setTitle("Simple Downloader");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(100, 100, 387, 324);
+		setBounds(100, 100, 387, 281);
 		setResizable(false);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -115,7 +117,7 @@ public class GUI extends JFrame {
 		lblNewLabel_1.setBounds(10, 76, 81, 14);
 		contentPane.add(lblNewLabel_1);
 
-		progressBar.setBounds(111, 152, 252, 25);
+		progressBar.setBounds(111, 110, 252, 25);
 		contentPane.add(progressBar);
 
 		textField_1 = new JTextField();
@@ -125,29 +127,19 @@ public class GUI extends JFrame {
 		textField_1.setText(currentPath);
 
 		statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
-		statusLabel.setBounds(10, 188, 353, 19);
+		statusLabel.setBounds(10, 146, 353, 19);
 		contentPane.add(statusLabel);
 
 		JLabel lblPro = new JLabel("Progress");
-		lblPro.setBounds(10, 163, 61, 14);
+		lblPro.setBounds(10, 121, 61, 14);
 		contentPane.add(lblPro);
 
 		errorLabel.setHorizontalAlignment(SwingConstants.CENTER);
-		errorLabel.setBounds(10, 218, 353, 19);
+		errorLabel.setBounds(10, 176, 353, 19);
 		contentPane.add(errorLabel);
 
-		downloadButton.setBounds(44, 248, 276, 31);
+		downloadButton.setBounds(48, 206, 276, 31);
 		contentPane.add(downloadButton);
-
-		textField_2 = new JTextField();
-		textField_2.setColumns(10);
-		textField_2.setBounds(111, 110, 252, 31);
-		contentPane.add(textField_2);
-		textField_2.setText("example.txt");
-
-		JLabel lblNewLabel_2 = new JLabel("Save FileName");
-		lblNewLabel_2.setBounds(10, 118, 102, 14);
-		contentPane.add(lblNewLabel_2);
 
 		errorChecker = new ErrorCheck(thisGUI);
 
@@ -176,28 +168,9 @@ public class GUI extends JFrame {
 	public void setEnabledForAll(boolean status) {
 		textField.setEnabled(status);
 		textField_1.setEnabled(status);
-		textField_2.setEnabled(status);
 		downloadButton.setEnabled(status);
 	}
 
-}
-
-enum Errors {
-	INVALID_DIRECTORY(new Error("Not a valid Directory!", Color.RED, 8)), INVALID_URL(
-			new Error("Can't connect to that URL", Color.RED, 10)), MALFORMED_URL(
-			new Error(
-					"Not a valid URL - make sure you have http:// or https://",
-					Color.RED, 9));
-
-	Error error;
-
-	Errors(Error e) {
-		this.error = e;
-	}
-
-	public Error getError() {
-		return error;
-	}
 }
 
 class WebDownload implements Runnable {
@@ -219,11 +192,12 @@ class WebDownload implements Runnable {
 		if (filePath.charAt(filePath.length() - 1) != '/') {
 			filePath += '/';
 		}
-		String fileName = gui.textField_2.getText();
+		
 		BufferedInputStream in = null;
 		FileOutputStream fout = null;
 		URL url = new URL(fileUrl);
 		HttpURLConnection httpCon;
+		String fileName = url.getFile();
 		try {
 			in = new BufferedInputStream(url.openStream());
 			fout = new FileOutputStream(filePath + fileName);
@@ -304,31 +278,35 @@ class ErrorCheck implements Runnable {
 	public void checkForErrors() {
 		File path = new File(fileDir);
 		URL url = null;
+		Error INVALID_DIRECTORY = new Error("Not a valid directory!", Color.RED, 8);		
+		Error MALFORMED_URL = new Error("Not a valid URL - be sure to include http://",	Color.RED, 9);
+		Error INVALID_URL = new Error("Couldn't establish a connection!" , Color.RED, 10);
+		
 		try {
-			url = new URL(urlPath);
+			url = new URL(urlPath);			
 			if (!url.getHost().equals(null) && !url.getHost().equals("")) {
 				url.openStream();
-				gui.errorLabel.removeError(Errors.MALFORMED_URL);
-				gui.errorLabel.removeError(Errors.INVALID_URL);
+				gui.errorLabel.removeError(MALFORMED_URL);
+				gui.errorLabel.removeError(INVALID_URL);
 				gui.textField.setBackground(Color.WHITE);
 			} else {
-				gui.errorLabel.addError(Errors.INVALID_URL);
+				gui.errorLabel.addError(INVALID_URL);
 				gui.textField.setBackground(Color.RED);
 			}
 
 		} catch (MalformedURLException e) {
-			gui.errorLabel.addError(Errors.MALFORMED_URL);
+			gui.errorLabel.addError(MALFORMED_URL);
 			gui.textField.setBackground(Color.RED);
 		} catch (IOException e) {
-			gui.errorLabel.addError(Errors.INVALID_URL);
-			gui.textField.setBackground(Color.RED);			
+			gui.errorLabel.addError(INVALID_URL);
+			gui.textField.setBackground(Color.RED);	
 		}
 
 		if (!path.exists()) {
-			gui.errorLabel.addError(Errors.INVALID_DIRECTORY);
+			gui.errorLabel.addError(INVALID_DIRECTORY);
 			gui.textField_1.setBackground(Color.RED);
 		} else {
-			gui.errorLabel.removeError(Errors.INVALID_DIRECTORY);
+			gui.errorLabel.removeError(INVALID_DIRECTORY);
 			gui.textField_1.setBackground(Color.WHITE);
 		}
 

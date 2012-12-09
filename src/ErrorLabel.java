@@ -30,20 +30,6 @@ public class ErrorLabel extends JLabel {
 		}
 	}
 	
-	public void addError(Errors error) {
-		if (!errorList.contains(error.getError())) {
-			errorList.add(error.getError());
-			refresh();
-		}
-	}
-	
-	public void removeError(Errors error) {
-		if (errorList.contains(error.getError())) {
-			errorList.remove(error.getError());
-			refresh();
-		}
-	}
-	
 	public void setCurrentError(Error error) {
 		currentError = error;
 	}
