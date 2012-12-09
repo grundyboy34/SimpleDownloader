@@ -186,7 +186,6 @@ public class GUI extends JFrame {
 	public void toggleDownloadButtonText() {
 		if (isDownloading) {
 			downloadButton.setText("Abort");
-
 		} else {
 			downloadButton.setText("Download");
 		}
@@ -267,6 +266,8 @@ class WebDownload implements Runnable {
 			} else {
 				gui.statusLabel.setText("Download Complete!");
 			}
+			gui.isDownloading = false;
+			gui.toggleDownloadButtonText();
 			gui.setEnabledForAll(true);
 		}
 	}
