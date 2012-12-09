@@ -77,6 +77,7 @@ public class GUI extends JFrame {
 		textField.setBounds(111, 26, 252, 31);
 		contentPane.add(textField);
 		textField.setColumns(10);
+		textField.setText("https://raw.github.com/grundyboy34/SimpleDownloader/master/README.md");
 
 		JLabel lblNewLabel = new JLabel("URL");
 		lblNewLabel.setBounds(10, 34, 46, 14);
