@@ -2,20 +2,31 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.EventQueue;
 
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.EmptyBorder;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
+import javax.swing.UIManager;
+
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
+import java.security.cert.Certificate;
+import java.text.DecimalFormat;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javax.swing.SwingConstants;
 import javax.swing.JButton;
@@ -29,30 +40,45 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeEvent;
 import javax.swing.event.CaretListener;
 import javax.swing.event.CaretEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
 
 public class GUI extends JFrame {
 
 	private JPanel contentPane;
-	private JTextField textField;
-	private JTextField textField_1;
-	final private JLabel statusLabel = new JLabel("Idle");
-	final private ErrorLabel errorLabel = new ErrorLabel("");
-	final private JButton downloadButton = new JButton("Download!");
-
-	// errors
-	final Error noDirError = new Error("Not a valid Directory!", Color.RED, 8);
-	private JTextField textField_2;
+	JTextField textField;
+	JTextField textField_1;
+	JTextField textField_2;
+	final JLabel statusLabel = new JLabel("Idle");
+	final ErrorLabel errorLabel = new ErrorLabel("");
+	final JButton downloadButton = new JButton("Download!");
+	JProgressBar progressBar = new JProgressBar();
+	final GUI thisGUI = this;
+	ErrorCheck errorChecker;
 
 	/**
 	 * Launch the application.
 	 */
 	public static void main(String[] args) {
+		for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+			if ("Nimbus".equals(info.getName())) {
+				try {
+					UIManager.setLookAndFeel(info.getClassName());
+				} catch (Exception e) {
+
+				}
+				break;
+			}
+		}
+
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
+				String current = "C:/";
 				try {
-					GUI frame = new GUI("C:");
+					current = new java.io.File(".").getCanonicalPath();
+					GUI frame = new GUI(current);
 					frame.setVisible(true);
-				} catch (Exception e) {
+				} catch (IOException e) {
 					e.printStackTrace();
 				}
 			}
@@ -68,6 +94,7 @@ public class GUI extends JFrame {
 		setTitle("Simple Downloader");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setBounds(100, 100, 387, 324);
+		setResizable(false);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
@@ -77,7 +104,8 @@ public class GUI extends JFrame {
 		textField.setBounds(111, 26, 252, 31);
 		contentPane.add(textField);
 		textField.setColumns(10);
-		textField.setText("https://raw.github.com/grundyboy34/SimpleDownloader/master/README.md");
+		textField
+				.setText("https://raw.github.com/grundyboy34/SimpleDownloader/master/README.md");
 
 		JLabel lblNewLabel = new JLabel("URL");
 		lblNewLabel.setBounds(10, 34, 46, 14);
@@ -87,7 +115,6 @@ public class GUI extends JFrame {
 		lblNewLabel_1.setBounds(10, 76, 81, 14);
 		contentPane.add(lblNewLabel_1);
 
-		JProgressBar progressBar = new JProgressBar();
 		progressBar.setBounds(111, 152, 252, 25);
 		contentPane.add(progressBar);
 
@@ -111,67 +138,208 @@ public class GUI extends JFrame {
 
 		downloadButton.setBounds(44, 248, 276, 31);
 		contentPane.add(downloadButton);
-		
+
 		textField_2 = new JTextField();
 		textField_2.setColumns(10);
 		textField_2.setBounds(111, 110, 252, 31);
 		contentPane.add(textField_2);
 		textField_2.setText("example.txt");
-		
+
 		JLabel lblNewLabel_2 = new JLabel("Save FileName");
 		lblNewLabel_2.setBounds(10, 118, 102, 14);
 		contentPane.add(lblNewLabel_2);
+
+		errorChecker = new ErrorCheck(thisGUI);
 
 		// listeners
 
 		textField_1.addCaretListener(new CaretListener() {
 			public void caretUpdate(CaretEvent arg0) {
-				checkForErrors();
+				errorChecker.setFileDir(textField_1.getText());
 			}
 		});
 
 		textField.addCaretListener(new CaretListener() {
 			public void caretUpdate(CaretEvent arg0) {
-				checkForErrors();
+				errorChecker.setURL(textField.getText());
+			}
+		});
+
+		downloadButton.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				final WebDownload dl = new WebDownload(thisGUI);
 			}
 		});
 
 	}
 
-	public void checkForErrors() {
-		File path = new File(textField_1.getText());
-
-		if (!path.exists()) {
-			errorLabel.addError(noDirError);
-			textField_1.setBackground(Color.RED);
-		} else {
-			errorLabel.removeError(noDirError);
-			textField_1.setBackground(Color.WHITE);
-		}
-
-		downloadButton.setEnabled(errorLabel.getErrorList().isEmpty());
+	public void setEnabledForAll(boolean status) {
+		textField.setEnabled(status);
+		textField_1.setEnabled(status);
+		textField_2.setEnabled(status);
+		downloadButton.setEnabled(status);
 	}
 
-	public void download() throws MalformedURLException, IOException {
+}
 
-		String fileUrl = textField.getText();
-		String fileName = textField_1.getText();
+enum Errors {
+	INVALID_DIRECTORY(new Error("Not a valid Directory!", Color.RED, 8)), INVALID_URL(
+			new Error("Can't connect to that URL", Color.RED, 10)), MALFORMED_URL(
+			new Error(
+					"Not a valid URL - make sure you have http:// or https://",
+					Color.RED, 9));
+
+	Error error;
+
+	Errors(Error e) {
+		this.error = e;
+	}
+
+	public Error getError() {
+		return error;
+	}
+}
+
+class WebDownload implements Runnable {
+	GUI gui;
+	Thread t;
+	long fileSize;
+	int bufferSize = 1024 * 20;
+
+	public WebDownload(GUI gui) {
+		this.gui = gui;
+		t = new Thread(this);
+		t.start();
+	}
+
+	void download() throws MalformedURLException, IOException {
+
+		String fileUrl = gui.textField.getText();
+		String filePath = gui.textField_1.getText();
+		if (filePath.charAt(filePath.length() - 1) != '/') {
+			filePath += '/';
+		}
+		String fileName = gui.textField_2.getText();
 		BufferedInputStream in = null;
 		FileOutputStream fout = null;
+		URL url = new URL(fileUrl);
+		HttpURLConnection httpCon;
 		try {
-			in = new BufferedInputStream(new URL(fileUrl).openStream());
-			fout = new FileOutputStream(fileName);
+			in = new BufferedInputStream(url.openStream());
+			fout = new FileOutputStream(filePath + fileName);
+			httpCon = (HttpURLConnection) url.openConnection();
+			fileSize = httpCon.getContentLengthLong();
+			httpCon.disconnect();
+			byte data[] = new byte[bufferSize];
+			int count = 0;
+			long start = System.nanoTime();
+			long totalRead = 0;
+			final double NANOS_PER_SECOND = 1000000000.0;
+			//final double BYTES_PER_MIB = 1024 * 1024;
+			final double BYTES_PER_KILOBYTE = 1024;
+			double speed;
+			DecimalFormat formatter = new DecimalFormat("#.##");
+			gui.progressBar.setMaximum(fileSize < 0 ? 1 : (int) fileSize);
+			gui.progressBar.setValue(0);
+			gui.setEnabledForAll(false);
+			while ((count = in.read(data, 0, bufferSize)) != -1) {
+				totalRead += count;
+				speed = NANOS_PER_SECOND / BYTES_PER_KILOBYTE * totalRead
+						/ (System.nanoTime() - start + 1);
+				gui.statusLabel.setText("Downloading file - "
+						+ formatter.format(speed) + " KB/s");
+				gui.progressBar.setValue((int) totalRead);
 
-			byte data[] = new byte[1024];
-			int count;
-			while ((count = in.read(data, 0, 1024)) != -1) {
 				fout.write(data, 0, count);
 			}
 		} finally {
-			if (in != null)
+			if (in != null) {
 				in.close();
-			if (fout != null)
+			}
+			if (fout != null) {
 				fout.close();
+			}
+
+			gui.statusLabel.setText("Download Complete!");
+			gui.setEnabledForAll(true);
 		}
 	}
+
+	@Override
+	public void run() {
+		try {
+			download();
+			t.interrupt();
+		} catch (MalformedURLException e) {
+		} catch (IOException e) {
+		}
+
+	}
+
+}
+
+class ErrorCheck implements Runnable {
+
+	Thread t;
+	GUI gui;
+	String urlPath;
+	String fileDir;
+
+	public ErrorCheck(final GUI gui) {
+		this.gui = gui;
+		this.urlPath = gui.textField.getText();
+		this.fileDir = gui.textField_1.getText();
+		t = new Thread(this);
+		t.start();
+	}
+
+	public void setFileDir(String path) {
+		fileDir = path;
+	}
+
+	public void setURL(String url) {
+		urlPath = url;
+	}
+
+	public void checkForErrors() {
+		File path = new File(fileDir);
+		URL url = null;
+		try {
+			url = new URL(urlPath);
+			if (!url.getHost().equals(null) && !url.getHost().equals("")) {
+				url.openStream();
+				gui.errorLabel.removeError(Errors.MALFORMED_URL);
+				gui.errorLabel.removeError(Errors.INVALID_URL);
+				gui.textField.setBackground(Color.WHITE);
+			} else {
+				gui.errorLabel.addError(Errors.INVALID_URL);
+				gui.textField.setBackground(Color.RED);
+			}
+
+		} catch (MalformedURLException e) {
+			gui.errorLabel.addError(Errors.MALFORMED_URL);
+			gui.textField.setBackground(Color.RED);
+		} catch (IOException e) {
+			gui.errorLabel.addError(Errors.INVALID_URL);
+			gui.textField.setBackground(Color.RED);			
+		}
+
+		if (!path.exists()) {
+			gui.errorLabel.addError(Errors.INVALID_DIRECTORY);
+			gui.textField_1.setBackground(Color.RED);
+		} else {
+			gui.errorLabel.removeError(Errors.INVALID_DIRECTORY);
+			gui.textField_1.setBackground(Color.WHITE);
+		}
+
+		gui.downloadButton.setEnabled(gui.errorLabel.getErrorList().isEmpty());
+	}
+
+	@Override
+	public void run() {
+		for (;;) {
+			checkForErrors();
+		}
+	}
+
 }
