@@ -3,6 +3,7 @@ import java.awt.Color;
 import java.awt.EventQueue;
 
 import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -44,6 +45,8 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeEvent;
 import javax.swing.event.CaretListener;
 import javax.swing.event.CaretEvent;
+import javax.xml.ws.spi.http.HttpContext;
+
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 
@@ -201,6 +204,7 @@ class WebDownload implements Runnable {
 	Thread t;
 	long fileSize;
 	int bufferSize = 1024 * 20;
+	boolean connectionError = false;
 
 	public WebDownload(GUI gui) {
 		this.gui = gui;
@@ -228,18 +232,20 @@ class WebDownload implements Runnable {
 		String fileName = endPath.substring(endPath.lastIndexOf('/') + 1,
 				endPath.length());
 		if (fileName.equals(null) || fileName.equals("")) {
-			System.out.println("Filename unkown");
 			DateFormat dateFormat = new SimpleDateFormat("(MM-dd-yyyy_HH.mm)");
 			Date date = new Date();
-			System.out.println(dateFormat.format(date));
-			fileName =  dateFormat.format(date) + " @ " + url.getHost() + ".FILE";
+			fileName = dateFormat.format(date) + " @ " + url.getHost()
+					+ ".FILE";
 		}
 		try {
-			in = new BufferedInputStream(url.openStream());
+			gui.statusLabel.setText("Connecting...");
+			//in = new BufferedInputStream(url.openStream());
 			fout = new FileOutputStream(filePath + fileName);
 			httpCon = (HttpURLConnection) url.openConnection();
+			httpCon.addRequestProperty("User-Agent", "Java");
 			fileSize = httpCon.getContentLengthLong();
-			httpCon.disconnect();
+			in = new BufferedInputStream(httpCon.getInputStream());
+			//httpCon.disconnect();
 			byte data[] = new byte[bufferSize];
 			int count = 0;
 			long start = System.nanoTime();
@@ -263,6 +269,10 @@ class WebDownload implements Runnable {
 
 				fout.write(data, 0, count);
 			}
+			httpCon.disconnect();
+		} catch (IOException e) {
+			connectionError = true;
+			e.printStackTrace();
 		} finally {
 			if (in != null) {
 				in.close();
@@ -274,7 +284,11 @@ class WebDownload implements Runnable {
 			if (t.isInterrupted()) {
 				gui.statusLabel.setText("Download Aborted!");
 			} else {
-				gui.statusLabel.setText("Download Complete!");
+				if (connectionError) {
+					gui.statusLabel.setText("Couldn't Connect!");
+				} else {
+					gui.statusLabel.setText("Download Complete!");
+				}
 			}
 			gui.isDownloading = false;
 			gui.toggleDownloadButtonText();
@@ -301,6 +315,7 @@ class ErrorCheck implements Runnable {
 	GUI gui;
 	String urlPath;
 	String fileDir;
+	long lockout = System.currentTimeMillis();
 	final Error INVALID_DIRECTORY = new Error("Not a valid directory!",
 			Color.RED, 8);
 	final Error MALFORMED_URL = new Error(
@@ -327,11 +342,16 @@ class ErrorCheck implements Runnable {
 	public void checkForErrors() {
 		File path = new File(fileDir);
 		URL url = null;
+		HttpURLConnection httpCon;
 
 		try {
 			url = new URL(urlPath);
-			if (!url.getHost().equals(null) && !url.getHost().equals("")) {
-				url.openStream();
+			if (!url.getHost().equals(null) && !url.getHost().equals("")) {			
+				httpCon = (HttpURLConnection) url.openConnection();
+				httpCon.addRequestProperty("User-Agent", "Java");
+				httpCon.getInputStream().close();
+				httpCon.disconnect();
+				// url.openStream();
 				gui.errorLabel.removeError(INVALID_URL);
 				gui.errorLabel.removeError(MALFORMED_URL);
 				gui.textField.setBackground(Color.WHITE);
@@ -362,7 +382,10 @@ class ErrorCheck implements Runnable {
 	@Override
 	public void run() {
 		for (;;) {
-			checkForErrors();
+			if (System.currentTimeMillis() >= lockout) {
+				checkForErrors();
+				lockout = System.currentTimeMillis() + 250;
+			}
 		}
 	}
 
