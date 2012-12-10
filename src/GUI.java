@@ -242,7 +242,10 @@ class WebDownload implements Runnable {
 			//in = new BufferedInputStream(url.openStream());
 			fout = new FileOutputStream(filePath + fileName);
 			httpCon = (HttpURLConnection) url.openConnection();
-			httpCon.addRequestProperty("User-Agent", "Java");
+			//Connection: keep-alive 
+			//User-Agent: Valve/Steam HTTP Client 1.0  - theory to get faster download speeds on campus!
+			httpCon.addRequestProperty("User-Agent", "Valve/Steam HTTP Client 1.0");
+			httpCon.addRequestProperty("Connection", "keep-alive");
 			fileSize = httpCon.getContentLengthLong();
 			in = new BufferedInputStream(httpCon.getInputStream());
 			//httpCon.disconnect();
@@ -348,7 +351,7 @@ class ErrorCheck implements Runnable {
 			url = new URL(urlPath);
 			if (!url.getHost().equals(null) && !url.getHost().equals("")) {			
 				httpCon = (HttpURLConnection) url.openConnection();
-				httpCon.addRequestProperty("User-Agent", "Java");
+				httpCon.addRequestProperty("User-Agent", "Valve/Steam HTTP Client 1.0");
 				httpCon.getInputStream().close();
 				httpCon.disconnect();
 				// url.openStream();
