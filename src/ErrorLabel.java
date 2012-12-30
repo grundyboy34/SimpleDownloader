@@ -1,6 +1,7 @@
 
 import java.awt.Color;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.swing.JLabel;
