@@ -9,6 +9,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.EmptyBorder;
+import javax.swing.JOptionPane;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
@@ -177,8 +178,6 @@ public class GUI extends JFrame {
 				} else {
 					currentDownload = new WebDownload(thisGUI);
 				}
-				isDownloading = !isDownloading;
-				toggleDownloadButtonText();
 			}
 		});
 
@@ -214,6 +213,8 @@ class WebDownload implements Runnable {
 
 	public void abort() {
 		t.interrupt();
+		gui.isDownloading = !gui.isDownloading;
+		gui.toggleDownloadButtonText();
 	}
 
 	void download() throws MalformedURLException, IOException {
@@ -229,15 +230,23 @@ class WebDownload implements Runnable {
 		URL url = new URL(fileUrl);
 		HttpURLConnection httpCon;
 		String endPath = url.getFile();
-		String fileName = endPath.substring(endPath.lastIndexOf('/') + 1,
-				endPath.length());
+		String fileName = endPath.substring(endPath.lastIndexOf('/') + 1, endPath.length()).replaceAll("%20", " ");
 		if (fileName.equals(null) || fileName.equals("")) {
 			DateFormat dateFormat = new SimpleDateFormat("(MM-dd-yyyy_HH.mm)");
 			Date date = new Date();
 			fileName = dateFormat.format(date) + " @ " + url.getHost()
 					+ ".FILE";
 		}
+		if (new File(filePath + fileName).exists()) {
+			int reply = JOptionPane.showConfirmDialog(null, "That file exists in the current directory already, \n" +
+					"would you like to overwrite the file?", "Overwrite Notice!",JOptionPane.WARNING_MESSAGE, JOptionPane.YES_NO_OPTION);
+	        if (reply != JOptionPane.YES_OPTION) {
+	          return;
+	        }
+		}
 		try {
+			gui.isDownloading = !gui.isDownloading;
+			gui.toggleDownloadButtonText();
 			gui.statusLabel.setText("Connecting...");
 			//in = new BufferedInputStream(url.openStream());
 			fout = new FileOutputStream(filePath + fileName);
@@ -258,8 +267,8 @@ class WebDownload implements Runnable {
 			final double BYTES_PER_KILOBYTE = 1024;
 			double speed;
 			DecimalFormat formatter = new DecimalFormat("#.##");
-			gui.progressBar.setMaximum(fileSize < 0 ? 1 : (int) fileSize);
 			gui.progressBar.setValue(0);
+			gui.progressBar.setMaximum(fileSize < 0 ? 1 : (int) fileSize);			
 			gui.setEnabledForAll(false);
 			while (!t.isInterrupted()
 					&& (count = in.read(data, 0, bufferSize)) != -1) {
